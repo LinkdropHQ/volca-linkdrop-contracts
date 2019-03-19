@@ -1,16 +1,12 @@
 pragma solidity >= 0.5.6;
 
-// import './utilities/SafeMath.sol';
-// import './utilities/Stoppable.sol';
-// import './token/ERC20/ERC20.sol';
-
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/token/ERC20/IERC20.sol";
 import "openzeppelin-solidity/contracts/lifecycle/Pausable.sol";
 import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
 
 /**
- * @title Linkdrop Escrow Contract
+ * @title Linkdrop ERC20 Contract
  * @dev Contract sends tokens from LINKDROPPER's account to receiver on claim.
  * 
  * When deploying contract, linkdropper provides linkdrop parameters: 
@@ -31,7 +27,7 @@ import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
  * Anytime LINKDROPPER can get back unclaimed ether using withdrawEther method.
  * 
  */
-contract Linkdrop is Pausable {
+contract LinkdropERC20 is Pausable {
     
     address public TOKEN_ADDRESS; // ERC20 token to be distributed
     uint public CLAIM_AMOUNT; // amount of tokens claimed per link
@@ -43,7 +39,7 @@ contract Linkdrop is Pausable {
 
     event Withdrawn(address transitAddress, address receiver, uint timestamp);
 
-    // Mappings of transit address => true if link is used.
+    //Indicates whether the link was used or not
     mapping (address => bool) claimed;
 
     /**
@@ -80,7 +76,6 @@ contract Linkdrop is Pausable {
    */
     function verifyLinkKey
     (
-        //address _linkdropVerificationAddress, //LINKDROP_VERIFICATION_ADDRESS
         address _linkKeyAddress, // address that corresponds to ephemeral link private key generated for claim link
         address _referralAddress,
         bytes memory _signature
@@ -89,11 +84,8 @@ contract Linkdrop is Pausable {
     returns (bool) 
     {
         bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(keccak256(abi.encodePacked(_linkKeyAddress, _referralAddress)));
-        // bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _addressSigned, _referralAddress));
         address signer = ECDSA.recover(prefixedHash, _signature);
-        //address retAddr = ecrecover(prefixedHash, _v, _r, _s);
         return signer == LINKDROP_VERIFICATION_ADDRESS;
-        //return signer == _linkdropVerificationAddress;
     }
 
 
@@ -114,9 +106,7 @@ contract Linkdrop is Pausable {
     returns (bool) 
     {
         bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(keccak256(abi.encodePacked(_receiver)));
-        //bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _addressSigned));
         address signer = ECDSA.recover(prefixedHash, _signature);
-        //address retAddr = ecrecover(prefixedHash, _v, _r, _s);
         return signer == _linkKeyAddress;
     }
 
@@ -140,7 +130,7 @@ contract Linkdrop is Pausable {
         require(claimed[_linkKeyAddress] == false, "Link has already been claimed");
 
         // verify that ephemeral key is legit and signed by LINKDROP_VERIFICATION_ADDRESS's key
-        require(verifyLinkKey(_linkKeyAddress, _referralAddress, _linkdropperSignature), "Ephemeral key is not signed by linkdrop verification key");
+        require(verifyLinkKey(_linkKeyAddress, _referralAddress, _linkdropperSignature), "Link key is not signed by linkdrop verification key");
 
         // verify that receiver address is signed by ephemeral key assigned to claim link
         require(verifyReceiverAddress(_linkKeyAddress, _receiver, _receiverSignature), "Receiver address is not signed by ephemeral claim key");
