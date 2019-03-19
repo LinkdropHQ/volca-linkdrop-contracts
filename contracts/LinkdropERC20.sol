@@ -41,11 +41,11 @@ contract LinkdropERC20 is Pausable {
 
     // ether claimed per link
     uint public CLAIM_AMOUNT_ETH; 
+
     // address that holds tokens to distribute (owner of this contract)
-
     address payable public LINKDROPPER; 
-    // special address, used on claim to verify that links signed by the LINKDROPPER
 
+    // special address, used on claim to verify that links signed by the LINKDROPPER
     address public LINKDROP_VERIFICATION_ADDRESS; 
 
     //Indicates whether the link was used or not
@@ -157,7 +157,7 @@ contract LinkdropERC20 is Pausable {
         require(address(this).balance >= CLAIM_AMOUNT_ETH, "Insufficient amount of eth");
 
         _;
-    }
+    }   
 
     /**
     * @dev Withdraw tokens to receiver address if withdraw params are correct.
