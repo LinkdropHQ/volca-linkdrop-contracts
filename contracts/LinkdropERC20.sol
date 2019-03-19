@@ -7,7 +7,7 @@ import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
 
 /**
  * @title Linkdrop ERC20 Contract
- * @dev Contract sends tokens from LINKDROPPER's account to receiver on claim.
+ * @dev Contract sends tokens from linkdropper's account to receiver on claim.
  * 
  * When deploying contract, linkdropper provides linkdrop parameters: 
  * [token address, amount of tokens to be linkdropped, amount of eth to be claimed per link, linkdrop verification address]
@@ -15,7 +15,7 @@ import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
  * 
  * Linkdrop verification address is used to verify that links are signed by LINKDROPPER. 
  * 
- * LINKDROPPER generates claim links. Each link contains an ephemeral private key 
+ * Linkdropper generates claim links. Each link contains an ephemeral private key 
  * signed by the private key corresponding to linkdrop verification address. 
  * The ephemeral private key assigned to link can only! be used once to sign receiver's address
  * Receiver claims tokens by providing signature to the Relayer Server, which then calls smart contract to withdraw tokens
@@ -24,20 +24,20 @@ import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
  * by ephemeral private key assigned to the link. 
  * If everything is correct, smart contract sends tokens and ether to receiver.
  * 
- * Anytime LINKDROPPER can get back unclaimed ether using withdrawEther method.
+ * Anytime linkdropper can get back unclaimed ether using withdrawEther method.
  * 
  */
 contract LinkdropERC20 is Pausable {
     
     address public TOKEN_ADDRESS; // ERC20 token to be distributed
-    uint public CLAIM_AMOUNT; // amount of tokens claimed per link
+    uint public CLAIM_AMOUNT; // amount of tokens to be claimed per link
     uint public REFERRAL_REWARD; // referral reward
 
     uint public CLAIM_AMOUNT_ETH; // ether claimed per link
-    address payable public LINKDROPPER; // LINKDROPPER address, which holds tokens to distribute
+    address payable public LINKDROPPER; // address that holds tokens to distribute (owner of this contract)
     address public LINKDROP_VERIFICATION_ADDRESS; // special address, used on claim to verify that links signed by the LINKDROPPER
 
-    event Withdrawn(address transitAddress, address receiver, uint timestamp);
+    event Withdrawn(address linkKeyAddress, address receiver, uint timestamp);
 
     //Indicates whether the link was used or not
     mapping (address => bool) claimed;
@@ -133,7 +133,7 @@ contract LinkdropERC20 is Pausable {
         require(verifyLinkKey(_linkKeyAddress, _referralAddress, _linkdropperSignature), "Link key is not signed by linkdrop verification key");
 
         // verify that receiver address is signed by ephemeral key assigned to claim link
-        require(verifyReceiverAddress(_linkKeyAddress, _receiver, _receiverSignature), "Receiver address is not signed by ephemeral claim key");
+        require(verifyReceiverAddress(_linkKeyAddress, _receiver, _receiverSignature), "Receiver address is not signed by ephemeral link key");
 
         // verify that there is enough ether to make transfer
         require(address(this).balance >= CLAIM_AMOUNT_ETH, "Insufficient amount of eth");
