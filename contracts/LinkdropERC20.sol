@@ -211,14 +211,14 @@ contract LinkdropERC20 is Pausable {
 
     /**
     * @dev Get boolean if link is already claimed. 
-    * @param _linkKey address corresponding to link key
+    * @param _linkKeyAddress address corresponding to link key
     * @return True if the link key was already used. 
     */
-    function isClaimedLink(address _linkKey)
+    function isClaimedLink(address _linkKeyAddress)
     public view 
     returns (bool) 
     {
-        return claimed[_linkKey];
+        return claimed[_linkKeyAddress];
     }
 
     /**
