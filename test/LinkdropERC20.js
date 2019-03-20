@@ -273,8 +273,16 @@ describe("Linkdrop ERC20 tests", () => {
     ).to.be.revertedWith("Receiver address is not signed by link key");
   });
 
-  it("should successfully withdraw eth from contract", async () => {
-    await linkdropInstance.withdrawEther({ gasLimit: 500000 });
+  it("should fail to withdraw eth from non-linkdropper account", async () => {
+    await expect(
+      linkdropInstance.connect(receiver).withdrawEther({ gasLimit: 500000 })
+    ).to.be.revertedWith("Only linkdropper can withdraw eth");
+  });
+
+  it("should successfully withdraw eth from linkdropper account", async () => {
+    await linkdropInstance
+      .connect(linkdropper)
+      .withdrawEther({ gasLimit: 500000 });
     expect(await provider.getBalance(linkdropInstance.address)).to.eq(0);
   });
 });
