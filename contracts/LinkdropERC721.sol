@@ -57,11 +57,10 @@ contract LinkdropERC721 is Pausable {
     public view 
     returns (bool) 
     {
-    bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(keccak256(abi.encodePacked(_linkKeyAddress, _tokenId)));
-    address signer = ECDSA.recover(prefixedHash, _signature);
-    return signer == LINKDROP_VERIFICATION_ADDRESS;
-  }
-  
+        bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(keccak256(abi.encodePacked(_linkKeyAddress, _tokenId)));
+        address signer = ECDSA.recover(prefixedHash, _signature);
+        return signer == LINKDROP_VERIFICATION_ADDRESS;
+    }
   
     /**
     * @dev Verify that address is signed with needed private key.
@@ -94,7 +93,7 @@ contract LinkdropERC721 is Pausable {
     )
     {
         // verify that link wasn't claimed before  
-        require(isLinkClaimed(_linkKeyAddress) == false, "Link has already been claimed");
+        require(isClaimedLink(_linkKeyAddress) == false, "Link has already been claimed");
 
         // verify that ephemeral key is legit and signed by LINKDROP_VERIFICATION_ADDRESS's key
         require
@@ -140,11 +139,11 @@ contract LinkdropERC721 is Pausable {
 		_linkdropperSignature,
 		_receiverSignature
     )
-    returns (bool) {
-
+    returns (bool) 
+    {
         // mark link as claimed
         claimed[_linkKeyAddress] = _receiver;			
-                
+    
         // send nft
         IERC721(NFT_ADDRESS).transferFrom(LINKDROPPER, _receiver, _tokenId);
            
@@ -152,14 +151,14 @@ contract LinkdropERC721 is Pausable {
         emit Withdrawn(_linkKeyAddress, _tokenId, _receiver, now);    
         
         return true;
-  }
+    }
 
     /**
     * @dev Get boolean if link is already claimed. 
     * @param _linkKeyAddress address corresponding to link key
     * @return True if the transit address was already used. 
     */
-    function isLinkClaimed(address _linkKeyAddress) 
+    function isClaimedLink(address _linkKeyAddress) 
     public view returns (bool) 
     {
         return linkClaimedTo(_linkKeyAddress) != address(0);
@@ -172,7 +171,8 @@ contract LinkdropERC721 is Pausable {
     */
     function linkClaimedTo(address _linkKeyAddress) 
     public view 
-    returns (address) {
+    returns (address) 
+    {
         return claimed[_linkKeyAddress];
     }
 

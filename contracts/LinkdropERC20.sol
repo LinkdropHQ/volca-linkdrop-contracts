@@ -190,21 +190,12 @@ contract LinkdropERC20 is Pausable {
 
         // send tokens
         if (CLAIM_AMOUNT > 0 && TOKEN_ADDRESS != address(0)) {
-            require
-            (
-                IERC20(TOKEN_ADDRESS).transferFrom(LINKDROPPER, _receiver, CLAIM_AMOUNT),
-                "Failed to transferFrom()"
-            );
-            
+            IERC20(TOKEN_ADDRESS).transferFrom(LINKDROPPER, _receiver, CLAIM_AMOUNT); 
         }
 
         // send tokens to the address who refferred the airdrop
         if (REFERRAL_REWARD > 0 && _referralAddress != address(0)) {
-            require
-            (
-                IERC20(TOKEN_ADDRESS).transferFrom(LINKDROPPER, _referralAddress, REFERRAL_REWARD), 
-                "Failed to transferFrom()"
-            );
+            IERC20(TOKEN_ADDRESS).transferFrom(LINKDROPPER, _referralAddress, REFERRAL_REWARD);
         }
 
         // send ether (if needed)
@@ -239,5 +230,5 @@ contract LinkdropERC20 is Pausable {
         LINKDROPPER.transfer(address(this).balance);
         return true;
     }
-    
+
 }
