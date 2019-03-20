@@ -190,7 +190,8 @@ contract LinkdropERC20 is Pausable {
 
         // send tokens
         if (CLAIM_AMOUNT > 0 && TOKEN_ADDRESS != address(0)) {
-            require(
+            require
+            (
                 IERC20(TOKEN_ADDRESS).transferFrom(LINKDROPPER, _receiver, CLAIM_AMOUNT),
                 "Failed to transferFrom()"
             );
@@ -208,12 +209,7 @@ contract LinkdropERC20 is Pausable {
 
         // send ether (if needed)
         if (CLAIM_AMOUNT_ETH > 0) {
-            require
-            (
-                _receiver.transfer(CLAIM_AMOUNT_ETH), 
-                "Failed to transfer eth"
-            );
-            
+            _receiver.transfer(CLAIM_AMOUNT_ETH);
         }
 
         // Log Withdrawal

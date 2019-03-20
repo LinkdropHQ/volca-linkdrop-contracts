@@ -52,9 +52,9 @@ contract LinkdropERC721 is Pausable {
     (
 		address _linkKeyAddress,
 		uint256 _tokenId,
-		bytes _signature
+		bytes memory _signature
     )
-    public pure 
+    public view 
     returns (bool) 
     {
     bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(keccak256(abi.encodePacked(_linkKeyAddress, _tokenId)));
@@ -74,7 +74,7 @@ contract LinkdropERC721 is Pausable {
     (
 		address _linkKeyAddress,
 	    address _receiver,
-		bytes _signature
+		bytes memory _signature
     )
     public pure 
     returns (bool) 
@@ -146,12 +146,8 @@ contract LinkdropERC721 is Pausable {
         claimed[_linkKeyAddress] = _receiver;			
                 
         // send nft
-        require
-        (
-            IERC721(NFT_ADDRESS).transferFrom(LINKDROPPER, _receiver, _tokenId), 
-            "Failed to transferFrom()"
-        );
-        
+        IERC721(NFT_ADDRESS).transferFrom(LINKDROPPER, _receiver, _tokenId);
+           
         // log withdrawal
         emit Withdrawn(_linkKeyAddress, _tokenId, _receiver, now);    
         
@@ -166,7 +162,7 @@ contract LinkdropERC721 is Pausable {
     function isLinkClaimed(address _linkKeyAddress) 
     public view returns (bool) 
     {
-        return linkClaimedTo(_transitAddress) != address(0);
+        return linkClaimedTo(_linkKeyAddress) != address(0);
     }
 
     /**
