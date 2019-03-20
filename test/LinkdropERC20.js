@@ -1,42 +1,34 @@
-import chai from "chai";
+const etherlime = require("etherlime");
 const ethers = require("ethers");
-import {
-  createMockProvider,
-  deployContract,
-  getWallets,
-  solidity
-} from "ethereum-waffle";
-import TokenMock from "../build/TokenMock";
-import LinkdropERC20 from "../build/LinkdropERC20";
+const TokenMock = require("../build/TokenMock.json");
+const LinkdropERC20 = require("../build/LinkdropERC20.json");
 
-chai.use(solidity);
-const { expect } = chai;
+const linkdropper = accounts[0];
+const linkdropVerifier = ethers.Wallet.createRandom();
+const deployer = new etherlime.EtherlimeGanacheDeployer(linkdropper.secretKey);
 
 const ADDRESS_ZERO = ethers.utils.getAddress(
   "0x0000000000000000000000000000000000000000"
 );
-
-let provider = createMockProvider();
-let [linkdropper, linkdropVerifier] = getWallets(provider);
-let tokenInstance;
-let linkdropInstance;
 const CLAIM_AMOUNT = 10;
 const REFERRAL_AMOUNT = 1;
 const CLAIM_AMOUNT_ETH = ethers.utils.parseEther("0");
 const LINKDROP_VERIFICATION_ADDRESS = linkdropVerifier.address;
 
-const signLinkKeyAddress = async function(linkKeyAddress, referralAddress) {
+let tokenInstance;
+let linkdropInstance;
+
+const signLinkKeyAddress = async (linkKeyAddress, referralAddress) => {
   let messageHash = ethers.utils.solidityKeccak256(
     ["address", "address"],
     [linkKeyAddress, referralAddress]
   );
   let messageHashToSign = ethers.utils.arrayify(messageHash);
   let signature = await linkdropVerifier.signMessage(messageHashToSign);
-  //console.log("Signature: ", signature);
   return signature;
 };
 
-const createLink = async function(referralAddress) {
+const createLink = async referralAddress => {
   let wallet = ethers.Wallet.createRandom();
   let key = wallet.privateKey;
   let address = wallet.address;
@@ -52,7 +44,7 @@ const createLink = async function(referralAddress) {
   };
 };
 
-const signReceiverAddress = async function(linkKey, receiverAddress) {
+const signReceiverAddress = async (linkKey, receiverAddress) => {
   let wallet = new ethers.Wallet(linkKey);
   let messageHash = ethers.utils.solidityKeccak256(
     ["address"],
@@ -63,43 +55,51 @@ const signReceiverAddress = async function(linkKey, receiverAddress) {
   return signature;
 };
 
-describe("Linkdrop tests", () => {
+describe("Linkdrop ERC20 Tests", () => {
   before(async () => {
-    tokenInstance = await deployContract(linkdropper, TokenMock, [
-      linkdropper.address,
+    tokenInstance = await deployer.deploy(
+      TokenMock,
+      {},
+      deployer.signer.address,
       1000
-    ]);
+    );
 
-    linkdropInstance = await deployContract(linkdropper, LinkdropERC20, [
-      tokenInstance.address,
+    linkdropInstance = await deployer.deploy(
+      LinkdropERC20,
+      {},
+      tokenInstance.contractAddress,
       CLAIM_AMOUNT,
       REFERRAL_AMOUNT,
       CLAIM_AMOUNT_ETH,
       LINKDROP_VERIFICATION_ADDRESS
-    ]);
+    );
 
-    //Sending some eth from linkdropper to linkdrop contract
+    //Sending some eth from linkdropper to Linkdrop Contract
   });
 
   it("Assigns initial balance of linkdropper", async () => {
-    expect(await tokenInstance.balanceOf(linkdropper.address)).to.eq(1000);
+    let linkdropperBalance = await tokenInstance.balanceOf(
+      linkdropper.signer.address
+    );
+
+    assert.equal(linkdropperBalance, 1000);
   });
 
   it("Creates new link key and verifies its signature", async () => {
     let link = await createLink(ADDRESS_ZERO);
-    //console.log(link);
 
-    expect(
-      await linkdropInstance.verifyLinkKey(
-        link.address,
-        link.referralAddress,
-        link.verificationSignature
-      )
-    ).to.be.true;
+    let success = await linkdropInstance.verifyLinkKey(
+      link.address,
+      link.referralAddress,
+      link.verificationSignature
+    );
+
+    assert.equal(success, true);
   });
 
   it("Signs receiver address with link key and verifies this signature onchain", async () => {
     let link = await createLink(ADDRESS_ZERO);
+
     let receiverAddress = ethers.Wallet.createRandom().address;
 
     let receiverSignature = await signReceiverAddress(
@@ -107,33 +107,46 @@ describe("Linkdrop tests", () => {
       receiverAddress
     );
 
-    expect(
-      await linkdropInstance.verifyReceiverAddress(
-        link.address,
-        receiverAddress,
-        receiverSignature
-      )
-    ).to.be.true;
+    let success = await linkdropInstance.verifyReceiverAddress(
+      link.address,
+      receiverAddress,
+      receiverSignature
+    );
+
+    assert.equal(success, true);
   });
 
-  // it("Should withdraw when passing valid withdrawal params", async () => {
-  //   let referralAddress = ADDRESS_ZERO;
-  //   let link = await createLink(referralAddress);
-  //   let receiverAddress = ethers.Wallet.createRandom().address;
-  //   let receiverSignature = await signReceiverAddress(
-  //     link.key,
-  //     receiverAddress
-  //   );
+  it("Should withdraw when passing valid withdrawal params", async () => {
+    let referralAddress = ADDRESS_ZERO;
+    let link = await createLink(referralAddress);
+    let receiverAddress = ethers.Wallet.createRandom().address;
+    let receiverSignature = await signReceiverAddress(
+      link.key,
+      receiverAddress
+    );
 
-  //   //Approving token from linkdropper to receiver
-  //   //await tokenInstance.approve(receiverAddress, 20);
+    let linkdropRelayer = accounts[9];
 
-  //   await linkdropInstance.withdraw(
-  //     receiverAddress,
-  //     referralAddress,
-  //     link.address,
-  //     link.verificationSignature,
-  //     receiverSignature
-  //   );
-  // });
+    //Approving tokens from linkdropper to Linkdrop Contract
+    await tokenInstance.approve(linkdropInstance.contractAddress, 200);
+
+    const tx = await linkdropInstance
+      .from(linkdropRelayer)
+      .withdraw(
+        receiverAddress,
+        referralAddress,
+        link.address,
+        link.verificationSignature,
+        receiverSignature
+      );
+
+    const txReceipt = await linkdropInstance.verboseWaitForTransaction(tx);
+    // check for event
+    let isEmitted = utils.hasEvent(
+      txReceipt,
+      linkdropInstance.contract,
+      "Withdrawn"
+    );
+    assert(isEmitted, "Event Withdrawn was not emitted");
+  });
 });
