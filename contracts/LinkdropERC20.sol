@@ -239,5 +239,5 @@ contract LinkdropERC20 is Pausable {
         LINKDROPPER.transfer(address(this).balance);
         return true;
     }
-
+    
 }

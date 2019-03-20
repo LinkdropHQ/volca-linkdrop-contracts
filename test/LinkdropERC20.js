@@ -16,14 +16,22 @@ const ADDRESS_ZERO = ethers.utils.getAddress(
   "0x0000000000000000000000000000000000000000"
 );
 
+const ONE_ETHER = ethers.utils.parseEther("1");
+
 let provider = createMockProvider();
 let [linkdropper, linkdropVerifier] = getWallets(provider);
-let tokenInstance;
-let linkdropInstance;
+
 const CLAIM_AMOUNT = 10;
 const REFERRAL_AMOUNT = 1;
-const CLAIM_AMOUNT_ETH = ethers.utils.parseEther("0");
+const CLAIM_AMOUNT_ETH = ethers.utils.parseEther("0.01");
 const LINKDROP_VERIFICATION_ADDRESS = linkdropVerifier.address;
+
+let tokenInstance;
+let linkdropInstance;
+let link;
+let referralAddress;
+let receiverAddress;
+let receiverSignature;
 
 const signLinkKeyAddress = async function(linkKeyAddress, referralAddress) {
   let messageHash = ethers.utils.solidityKeccak256(
@@ -32,7 +40,6 @@ const signLinkKeyAddress = async function(linkKeyAddress, referralAddress) {
   );
   let messageHashToSign = ethers.utils.arrayify(messageHash);
   let signature = await linkdropVerifier.signMessage(messageHashToSign);
-  //console.log("Signature: ", signature);
   return signature;
 };
 
@@ -70,15 +77,21 @@ describe("Linkdrop tests", () => {
       1000
     ]);
 
-    linkdropInstance = await deployContract(linkdropper, LinkdropERC20, [
-      tokenInstance.address,
-      CLAIM_AMOUNT,
-      REFERRAL_AMOUNT,
-      CLAIM_AMOUNT_ETH,
-      LINKDROP_VERIFICATION_ADDRESS
-    ]);
+    linkdropInstance = await deployContract(
+      linkdropper,
+      LinkdropERC20,
+      [
+        tokenInstance.address,
+        CLAIM_AMOUNT,
+        REFERRAL_AMOUNT,
+        CLAIM_AMOUNT_ETH,
+        LINKDROP_VERIFICATION_ADDRESS
+      ],
+      { value: ONE_ETHER }
+    );
 
-    //Sending some eth from linkdropper to linkdrop contract
+    //Approving tokens from linkdropper to Linkdrop Contract
+    await tokenInstance.approve(linkdropInstance.address, 200);
   });
 
   it("Assigns initial balance of linkdropper", async () => {
@@ -86,7 +99,7 @@ describe("Linkdrop tests", () => {
   });
 
   it("Creates new link key and verifies its signature", async () => {
-    let link = await createLink(ADDRESS_ZERO);
+    link = await createLink(ADDRESS_ZERO);
 
     expect(
       await linkdropInstance.verifyLinkKey(
@@ -98,13 +111,9 @@ describe("Linkdrop tests", () => {
   });
 
   it("Signs receiver address with link key and verifies this signature onchain", async () => {
-    let link = await createLink(ADDRESS_ZERO);
-    let receiverAddress = ethers.Wallet.createRandom().address;
-
-    let receiverSignature = await signReceiverAddress(
-      link.key,
-      receiverAddress
-    );
+    link = await createLink(ADDRESS_ZERO);
+    receiverAddress = ethers.Wallet.createRandom().address;
+    receiverSignature = await signReceiverAddress(link.key, receiverAddress);
 
     expect(
       await linkdropInstance.verifyReceiverAddress(
@@ -115,26 +124,63 @@ describe("Linkdrop tests", () => {
     ).to.be.true;
   });
 
+  it("Should fail to withdraw when paused", async () => {
+    referralAddress = ADDRESS_ZERO;
+    link = await createLink(referralAddress);
+    receiverAddress = ethers.Wallet.createRandom().address;
+    receiverSignature = await signReceiverAddress(link.key, receiverAddress);
+
+    await linkdropInstance.pause(); //Pausing contract
+
+    await expect(
+      linkdropInstance.withdraw(
+        receiverAddress,
+        referralAddress,
+        link.address,
+        link.verificationSignature,
+        receiverSignature,
+        { gasLimit: 80000 }
+      )
+    ).to.be.reverted;
+  });
+
   it("Should withdraw when passing valid withdrawal params", async () => {
-    let referralAddress = ADDRESS_ZERO;
-    let link = await createLink(referralAddress);
-    let receiverAddress = ethers.Wallet.createRandom().address;
-    let receiverSignature = await signReceiverAddress(
-      link.key,
-      receiverAddress
-    );
+    await linkdropInstance.unpause(); //Unpausing
 
-    let linkdropRelayer = getWallets(provider);
+    referralAddress = ADDRESS_ZERO;
+    link = await createLink(referralAddress);
+    receiverAddress = ethers.Wallet.createRandom().address;
+    receiverSignature = await signReceiverAddress(link.key, receiverAddress);
+    await expect(
+      linkdropInstance.withdraw(
+        receiverAddress,
+        referralAddress,
+        link.address,
+        link.verificationSignature,
+        receiverSignature,
+        { gasLimit: 500000 }
+      )
+    )
+      .to.emit(linkdropInstance, "Withdrawn")
+      .to.emit(tokenInstance, "Transfer") //should transfer claimed tokens
+      .withArgs(linkdropper.address, receiverAddress, CLAIM_AMOUNT);
+  });
 
-    //Approving tokens from linkdropper to Linkdrop Contract
-    await tokenInstance.approve(linkdropInstance.address, 200);
+  it("should fail to withdraw link twice", async () => {
+    await expect(
+      linkdropInstance.withdraw(
+        receiverAddress,
+        referralAddress,
+        link.address,
+        link.verificationSignature,
+        receiverSignature,
+        { gasLimit: 500000 }
+      )
+    ).to.be.revertedWith("Link has already been claimed");
+  });
 
-    await linkdropInstance.withdraw(
-      receiverAddress,
-      referralAddress,
-      link.address,
-      link.verificationSignature,
-      receiverSignature
-    );
+  it("should withdraw eth from contract", async () => {
+    await linkdropInstance.withdrawEther({ gasLimit: 500000 });
+    expect(await linkdropInstance.balance()).to.eq(0);
   });
 });
