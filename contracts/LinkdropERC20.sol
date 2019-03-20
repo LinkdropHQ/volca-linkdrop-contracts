@@ -226,7 +226,7 @@ contract LinkdropERC20 is Pausable {
     * @return True if ether was withdrawn. 
     */
     function withdrawEther() public returns (bool) {
-        require(msg.sender == LINKDROPPER, "Only linkdropper can withdraw ether");
+        require(msg.sender == LINKDROPPER, "Only linkdropper can withdraw eth");
         LINKDROPPER.transfer(address(this).balance);
         return true;
     }
