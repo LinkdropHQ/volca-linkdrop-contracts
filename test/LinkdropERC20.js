@@ -156,7 +156,7 @@ describe("Linkdrop ERC20 tests", () => {
     await linkdropInstance.pause(); //Pausing contract
 
     await expect(
-      linkdropInstance.withdraw(
+      linkdropInstance.claim(
         receiverAddress,
         referralAddress,
         link.address,
@@ -174,7 +174,7 @@ describe("Linkdrop ERC20 tests", () => {
     receiverAddress = ethers.Wallet.createRandom().address;
     receiverSignature = await signReceiverAddress(link.key, receiverAddress);
     await expect(
-      linkdropInstance.withdraw(
+      linkdropInstance.claim(
         receiverAddress,
         referralAddress,
         link.address,
@@ -185,7 +185,7 @@ describe("Linkdrop ERC20 tests", () => {
     ).to.be.reverted;
   });
 
-  it("should succesfully claim tokens with valid withdrawal params", async () => {
+  it("should succesfully claim tokens with valid claim params", async () => {
     //Approving tokens from linkdropper to Linkdrop Contract
     await tokenInstance.approve(linkdropInstance.address, 1000);
 
@@ -197,7 +197,7 @@ describe("Linkdrop ERC20 tests", () => {
     let receiverEthBalanceBefore = await provider.getBalance(receiverAddress);
 
     await expect(
-      linkdropInstance.withdraw(
+      linkdropInstance.claim(
         receiverAddress,
         referralAddress,
         link.address,
@@ -206,7 +206,7 @@ describe("Linkdrop ERC20 tests", () => {
         { gasLimit: 500000 }
       )
     )
-      .to.emit(linkdropInstance, "Withdrawn")
+      .to.emit(linkdropInstance, "Claimed")
       .to.emit(tokenInstance, "Transfer") //should transfer claimed tokens to receiver
       .withArgs(linkdropper.address, receiverAddress, CLAIM_AMOUNT);
 
@@ -224,7 +224,7 @@ describe("Linkdrop ERC20 tests", () => {
 
   it("should fail to claim link twice", async () => {
     await expect(
-      linkdropInstance.withdraw(
+      linkdropInstance.claim(
         receiverAddress,
         referralAddress,
         link.address,
@@ -247,7 +247,7 @@ describe("Linkdrop ERC20 tests", () => {
     let fakeSignature = await receiver.signMessage(messageToSign);
 
     await expect(
-      linkdropInstance.withdraw(
+      linkdropInstance.claim(
         receiverAddress,
         referralAddress,
         linkKeyaddress,
@@ -268,7 +268,7 @@ describe("Linkdrop ERC20 tests", () => {
       receiverAddress
     );
     await expect(
-      linkdropInstance.withdraw(
+      linkdropInstance.claim(
         receiverAddress,
         referralAddress,
         link.address,

@@ -18,9 +18,9 @@ import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
  * signed by the private key corresponding to linkdrop verification address. 
  * The ephemeral private key assigned to link can only! be used once to sign receiver's address
  * Receiver claims NFT by providing signature to the Relayer Server, 
- * which then calls smart contract to withdraw NFT
+ * which then calls smart contract to claim NFT
  * 
- * On withdrawal smart contract verifies that receiver provided address signed 
+ * On claim smart contract verifies that receiver provided address signed 
  * with ephemeral private key assigned to the link. 
  * If everything is correct, smart contract sends NFT to receiver.
  * 
@@ -40,7 +40,7 @@ contract LinkdropERC721 is Pausable {
     //Indicates whether the link was used or not                                                                                                                 
     mapping (address => address) claimed;  
 
-    event Withdrawn(address indexed linkKeyAddress, uint indexed tokenId, address receiver, uint timestamp);
+    event Claimed(address indexed linkKeyAddress, uint indexed tokenId, address receiver, uint timestamp);
   
     /**
     * @dev Contructor that sets linkdrop params 
@@ -110,7 +110,7 @@ contract LinkdropERC721 is Pausable {
     * @param _linkdropperSignature ECDSA signature. Signed by linkdrop verification key.
     * @param _receiverSignature ECDSA signature. Signed by link key
     */
-    modifier whenValidWithdrawalParams
+    function checkClaimParams
     (
         address _receiver, 
 		uint256 _tokenId, 
@@ -118,6 +118,8 @@ contract LinkdropERC721 is Pausable {
 		bytes memory _linkdropperSignature,
 		bytes memory _receiverSignature
     )
+    public view
+    returns (bool)
     {
         // verify that link wasn't claimed before  
         require(isClaimedLink(_linkKeyAddress) == false, "Link has already been claimed");
@@ -136,11 +138,11 @@ contract LinkdropERC721 is Pausable {
             "Receiver address is not signed by link key"
         );
 
-        _;
+        return true;
     }
   
     /**
-    * @dev Withdraw NFT to receiver address if withdraw params are correct.
+    * @dev Claim NFT to receiver address if claim params are correct.
     * @param _receiver address to receive tokens.
     * @param _tokenId token id to be sent
     * @param _linkKeyAddress address corresponding to link key 
@@ -148,7 +150,7 @@ contract LinkdropERC721 is Pausable {
     * @param _receiverSignature ECDSA signature. Signed by the link's ephemeral key.
     * @return True if NFT was successfully sent to receiver.
     */
-    function withdraw
+    function claim
     (
 		address _receiver, 
 		uint256 _tokenId, 
@@ -158,24 +160,29 @@ contract LinkdropERC721 is Pausable {
 	)
     public
     whenNotPaused
-    whenValidWithdrawalParams
-    (
-        _receiver, 
-    	_tokenId,
-		_linkKeyAddress,
-		_linkdropperSignature,
-		_receiverSignature
-    )
     returns (bool) 
     {
+        require
+        (
+            checkClaimParams
+            (
+                _receiver,
+                _tokenId,
+                _linkKeyAddress,
+                _linkdropperSignature,
+                _receiverSignature
+            ),
+            "Invalid claim params"
+        );
+
         // mark link as claimed
         claimed[_linkKeyAddress] = _receiver;			
     
         // send NFT
         IERC721(NFT_ADDRESS).transferFrom(LINKDROPPER, _receiver, _tokenId);
            
-        // log withdrawal
-        emit Withdrawn(_linkKeyAddress, _tokenId, _receiver, now);    
+        // log claim
+        emit Claimed(_linkKeyAddress, _tokenId, _receiver, now);    
         
         return true;
     }

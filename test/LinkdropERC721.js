@@ -142,7 +142,7 @@ describe("Linkdrop ERC721 tests", () => {
     await linkdropInstance.pause(); //Pausing contract
 
     await expect(
-      linkdropInstance.withdraw(
+      linkdropInstance.claim(
         receiverAddress,
         tokenId,
         link.address,
@@ -159,7 +159,7 @@ describe("Linkdrop ERC721 tests", () => {
     receiverAddress = ethers.Wallet.createRandom().address;
     receiverSignature = await signReceiverAddress(link.key, receiverAddress);
     await expect(
-      linkdropInstance.withdraw(
+      linkdropInstance.claim(
         receiverAddress,
         tokenId, //NFT with this id is not approved yet
         link.address,
@@ -170,7 +170,7 @@ describe("Linkdrop ERC721 tests", () => {
     ).to.be.reverted;
   });
 
-  it("should succesfully claim NFT with valid withdrawal params", async () => {
+  it("should succesfully claim NFT with valid claim params", async () => {
     tokenId = 0;
     //Approving NFT with tokenID = 0 from linkdropper to Linkdrop Contract
     await nftInstance.approve(linkdropInstance.address, tokenId);
@@ -180,7 +180,7 @@ describe("Linkdrop ERC721 tests", () => {
     receiverSignature = await signReceiverAddress(link.key, receiverAddress);
 
     await expect(
-      linkdropInstance.withdraw(
+      linkdropInstance.claim(
         receiverAddress,
         tokenId,
         link.address,
@@ -189,14 +189,14 @@ describe("Linkdrop ERC721 tests", () => {
         { gasLimit: 500000 }
       )
     )
-      .to.emit(linkdropInstance, "Withdrawn")
+      .to.emit(linkdropInstance, "Claimed")
       .to.emit(nftInstance, "Transfer") //should transfer claimed NFT
       .withArgs(linkdropper.address, receiverAddress, tokenId);
   });
 
   it("should fail to claim link twice", async () => {
     await expect(
-      linkdropInstance.withdraw(
+      linkdropInstance.claim(
         receiverAddress,
         tokenId,
         link.address,
@@ -219,7 +219,7 @@ describe("Linkdrop ERC721 tests", () => {
     let fakeSignature = await receiver.signMessage(messageToSign);
 
     await expect(
-      linkdropInstance.withdraw(
+      linkdropInstance.claim(
         receiverAddress,
         tokenId,
         linkKeyaddress,
@@ -239,7 +239,7 @@ describe("Linkdrop ERC721 tests", () => {
       receiverAddress
     );
     await expect(
-      linkdropInstance.withdraw(
+      linkdropInstance.claim(
         receiverAddress,
         tokenId,
         link.address,
@@ -256,7 +256,7 @@ describe("Linkdrop ERC721 tests", () => {
     receiverSignature = await signReceiverAddress(link.key, receiverAddress);
 
     await expect(
-      linkdropInstance.withdraw(
+      linkdropInstance.claim(
         receiverAddress,
         tokenId,
         link.address,

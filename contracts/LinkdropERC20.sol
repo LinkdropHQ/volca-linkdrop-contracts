@@ -19,9 +19,9 @@ import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
  * signed by the private key corresponding to linkdrop verification address. 
  * The ephemeral private key assigned to link can only! be used once to sign receiver's address
  * Receiver claims tokens by providing signature to the Relayer Server, 
- * which then calls smart contract to withdraw tokens
+ * which then calls smart contract to claim tokens
  * 
- * On withdrawal smart contract verifies, that receiver provided address signed 
+ * On claim smart contract verifies, that receiver provided address signed 
  * with ephemeral private key assigned to the link. 
  * If everything is correct, smart contract sends tokens and ether to receiver.
  * 
@@ -51,7 +51,7 @@ contract LinkdropERC20 is Pausable {
     //Indicates whether the link was used or not
     mapping (address => bool) claimed;
 
-    event Withdrawn(address indexed linkKeyAddress, address receiver, uint timestamp);
+    event Claimed(address indexed linkKeyAddress, address receiver, uint timestamp);
 
     /**
     * @dev Contructor that sets linkdrop params and receives ether needed for the linkdrop. 
@@ -127,7 +127,7 @@ contract LinkdropERC20 is Pausable {
     * @param _linkdropperSignature ECDSA signature. Signed by linkdrop verification key.
     * @param _receiverSignature ECDSA signature. Signed by link key
     */
-    modifier whenValidWithdrawalParams
+    function checkClaimParams
     (
         address _receiver,
         address _referralAddress,
@@ -135,6 +135,8 @@ contract LinkdropERC20 is Pausable {
         bytes memory _linkdropperSignature,
         bytes memory _receiverSignature
     )
+    public view
+    returns (bool)
     {
         // verify that link wasn't claimed before
         require(claimed[_linkKeyAddress] == false, "Link has already been claimed");
@@ -156,18 +158,18 @@ contract LinkdropERC20 is Pausable {
         // verify that there is enough ether to make transfer
         require(address(this).balance >= CLAIM_AMOUNT_ETH, "Insufficient amount of eth");
 
-        _;
-    }   
+        return true;
+    }
 
     /**
-    * @dev Withdraw tokens to receiver address if withdraw params are correct.
+    * @dev Claim tokens to receiver address if claim params are correct.
     * @param _receiver address to receive tokens.
     * @param _linkKeyAddress address corresponding to link key 
     * @param _linkdropperSignature ECDSA signature. Signed by the airdrop transit key.
     * @param _receiverSignature ECDSA signature. Signed by the link's ephemeral key.
     * @return True if tokens (and ether) were successfully sent to receiver.
     */
-    function withdraw
+    function claim
     (
         address payable _receiver,
         address _referralAddress,
@@ -176,16 +178,22 @@ contract LinkdropERC20 is Pausable {
         bytes memory _receiverSignature
     )
     public
-    whenValidWithdrawalParams
-    (   _receiver,
-        _referralAddress,
-        _linkKeyAddress,
-        _linkdropperSignature,
-        _receiverSignature
-    )
     whenNotPaused
     returns (bool) 
     {   
+        require
+        (
+            checkClaimParams
+            (
+                _receiver,
+                _referralAddress,
+                _linkKeyAddress,
+                _linkdropperSignature,
+                _receiverSignature
+            ),
+            "Invalid claim params"
+        );
+
         // mark link as claimed
         claimed[_linkKeyAddress] = true;
 
@@ -204,8 +212,8 @@ contract LinkdropERC20 is Pausable {
             _receiver.transfer(CLAIM_AMOUNT_ETH);
         }
 
-        // log withdrawal
-        emit Withdrawn(_linkKeyAddress, _receiver, now);
+        // log claim
+        emit Claimed(_linkKeyAddress, _receiver, now);
 
         return true;
     }
