@@ -6,22 +6,41 @@ import "openzeppelin-solidity/contracts/lifecycle/Pausable.sol";
 import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
 
 /**
- * @title Linkdrop ERC721 
+ * @title Linkdrop ERC721 Contract
+ * @dev Contract sends NFTs from linkdropper's account to receiver on claim.
+ * 
+ * When deploying contract, linkdropper provides linkdrop parameters: 
+ * (NFT address, linkdrop verification address).
+ * 
+ * Linkdrop verification address is used to verify that links are signed by LINKDROPPER. 
+ * 
+ * Linkdropper generates claim links. Each link contains an ephemeral private key 
+ * signed by the private key corresponding to linkdrop verification address. 
+ * The ephemeral private key assigned to link can only! be used once to sign receiver's address
+ * Receiver claims NFT by providing signature to the Relayer Server, 
+ * which then calls smart contract to withdraw NFT
+ * 
+ * On withdrawal smart contract verifies that receiver provided address signed 
+ * with ephemeral private key assigned to the link. 
+ * If everything is correct, smart contract sends NFT to receiver.
  * 
  */
-contract LinkdropERC721 is Pausable {
-  
-    address public NFT_ADDRESS; // NFT to be ditributed
 
-    address payable public LINKDROPPER; // linkdropper's address, which has NFTs to distribute
+contract LinkdropERC721 is Pausable {
+
+    // NFT to be ditributed
+    address public NFT_ADDRESS;
+
+    // address that holds NFTs to distribute (owner of this contract)
+    address payable public LINKDROPPER; 
 
     // special address, used on claim to verify that links signed by the LINKDROPPER
     address public LINKDROP_VERIFICATION_ADDRESS; 
   
-    event Withdrawn(address indexed linkKeyAddress, uint indexed tokenId, address receiver, uint timestamp);
-  
-    // Mappings of link key address => receiver address if link is used.                                                                                                                                
+    //Indicates whether the link was used or not                                                                                                                 
     mapping (address => address) claimed;  
+
+    event Withdrawn(address indexed linkKeyAddress, uint indexed tokenId, address receiver, uint timestamp);
   
     /**
     * @dev Contructor that sets linkdrop params 
@@ -42,7 +61,7 @@ contract LinkdropERC721 is Pausable {
     }
   
     /**
-    * @dev Verify that address is signed with needed private key.
+    * @dev Verify that address corresponding to link key is signed with linkdrop verification key
     * @param _linkKeyAddress address corresponding to link key
     * @param _tokenId tokenId attached to link 
     * @param _signature ECDSA signature
@@ -63,9 +82,9 @@ contract LinkdropERC721 is Pausable {
     }
   
     /**
-    * @dev Verify that address is signed with needed private key.
+    * @dev Verify that address to receive NFTs is signed with link key
     * @param _linkKeyAddress address corresponding to link key
-    * @param _receiver address to receive token.
+    * @param _receiver address to receive NFT.
     * @param _signature ECDSA signature
     * @return True if signature is correct.
     */
@@ -83,6 +102,14 @@ contract LinkdropERC721 is Pausable {
         return signer == _linkKeyAddress;
     }
 
+    /**
+    * @dev Verify that claim params are correct and the link's ephemeral key wasn't used before.  
+    * @param _receiver address to receive tokens.
+    * @param _tokenId tokenId attached to link 
+    * @param _linkKeyAddress address that corresponds to link key
+    * @param _linkdropperSignature ECDSA signature. Signed by linkdrop verification key.
+    * @param _receiverSignature ECDSA signature. Signed by link key
+    */
     modifier whenValidWithdrawalParams
     (
         address _receiver, 
@@ -113,7 +140,7 @@ contract LinkdropERC721 is Pausable {
     }
   
     /**
-    * @dev Withdraw nft to receiver address if withdraw params are correct.
+    * @dev Withdraw NFT to receiver address if withdraw params are correct.
     * @param _receiver address to receive tokens.
     * @param _tokenId token id to be sent
     * @param _linkKeyAddress address corresponding to link key 
@@ -144,7 +171,7 @@ contract LinkdropERC721 is Pausable {
         // mark link as claimed
         claimed[_linkKeyAddress] = _receiver;			
     
-        // send nft
+        // send NFT
         IERC721(NFT_ADDRESS).transferFrom(LINKDROPPER, _receiver, _tokenId);
            
         // log withdrawal

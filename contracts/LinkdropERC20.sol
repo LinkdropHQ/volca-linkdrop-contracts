@@ -22,7 +22,7 @@ import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
  * which then calls smart contract to withdraw tokens
  * 
  * On withdrawal smart contract verifies, that receiver provided address signed 
- * by ephemeral private key assigned to the link. 
+ * with ephemeral private key assigned to the link. 
  * If everything is correct, smart contract sends tokens and ether to receiver.
  * 
  * Anytime linkdropper can get back unclaimed ether using withdrawEther method.
@@ -51,7 +51,7 @@ contract LinkdropERC20 is Pausable {
     //Indicates whether the link was used or not
     mapping (address => bool) claimed;
 
-    event Withdrawn(address linkKeyAddress, address receiver, uint timestamp);
+    event Withdrawn(address indexed linkKeyAddress, address receiver, uint timestamp);
 
     /**
     * @dev Contructor that sets linkdrop params and receives ether needed for the linkdrop. 
@@ -185,7 +185,8 @@ contract LinkdropERC20 is Pausable {
     )
     whenNotPaused
     returns (bool) 
-    {
+    {   
+        // mark link as claimed
         claimed[_linkKeyAddress] = true;
 
         // send tokens
@@ -203,7 +204,7 @@ contract LinkdropERC20 is Pausable {
             _receiver.transfer(CLAIM_AMOUNT_ETH);
         }
 
-        // Log Withdrawal
+        // log withdrawal
         emit Withdrawn(_linkKeyAddress, _receiver, now);
 
         return true;
