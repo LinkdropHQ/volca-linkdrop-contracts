@@ -21,8 +21,8 @@ const ONE_ETHER = ethers.utils.parseEther("1");
 let provider = createMockProvider();
 let [linkdropper, linkdropVerifier, receiver] = getWallets(provider);
 
-const CLAIM_AMOUNT = 10;
-const REFERRAL_AMOUNT = 1;
+const CLAIM_AMOUNT = 20;
+const REFERRAL_AMOUNT = 5;
 const CLAIM_AMOUNT_ETH = ethers.utils.parseEther("0.01");
 const LINKDROP_VERIFICATION_ADDRESS = linkdropVerifier.address;
 
@@ -189,12 +189,12 @@ describe("Linkdrop ERC20 tests", () => {
     //Approving tokens from linkdropper to Linkdrop Contract
     await tokenInstance.approve(linkdropInstance.address, 1000);
 
-    referralAddress = ADDRESS_ZERO;
+    referralAddress = ethers.Wallet.createRandom().address;
     link = await createLink(referralAddress);
     receiverAddress = ethers.Wallet.createRandom().address;
     receiverSignature = await signReceiverAddress(link.key, receiverAddress);
 
-    let receiverBalanceBefore = await provider.getBalance(receiverAddress);
+    let receiverEthBalanceBefore = await provider.getBalance(receiverAddress);
 
     await expect(
       linkdropInstance.withdraw(
@@ -207,12 +207,18 @@ describe("Linkdrop ERC20 tests", () => {
       )
     )
       .to.emit(linkdropInstance, "Withdrawn")
-      .to.emit(tokenInstance, "Transfer") //should transfer claimed tokens
+      .to.emit(tokenInstance, "Transfer") //should transfer claimed tokens to receiver
       .withArgs(linkdropper.address, receiverAddress, CLAIM_AMOUNT);
 
-    let receiverBalanceAfter = await provider.getBalance(receiverAddress);
-    expect(receiverBalanceAfter).is.eq(
-      receiverBalanceBefore + CLAIM_AMOUNT_ETH //receiver got eth as well
+    let receiverTokenBalance = await tokenInstance.balanceOf(receiverAddress);
+    expect(receiverTokenBalance).to.eq(CLAIM_AMOUNT);
+
+    let referralTokenBalance = await tokenInstance.balanceOf(referralAddress);
+    expect(referralTokenBalance).to.eq(REFERRAL_AMOUNT);
+
+    let receiverEthBalanceAfter = await provider.getBalance(receiverAddress);
+    expect(receiverEthBalanceAfter).is.eq(
+      receiverEthBalanceBefore + CLAIM_AMOUNT_ETH //should transfer eth to receiver
     );
   });
 

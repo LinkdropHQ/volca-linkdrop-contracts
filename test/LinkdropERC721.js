@@ -102,7 +102,7 @@ describe("Linkdrop ERC721 tests", () => {
   it("should fail to send eth to linkdrop contract address", async () => {
     let tx = {
       to: linkdropInstance.address,
-      value: ethers.utils.parseEther("1.0")
+      value: ONE_ETHER
     };
     await expect(linkdropper.sendTransaction(tx)).to.be.reverted;
   });
