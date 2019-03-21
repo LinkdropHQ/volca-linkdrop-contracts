@@ -7,42 +7,52 @@ import {
   solidity
 } from "ethereum-waffle";
 import TokenMock from "../build/TokenMock";
-import LinkdropERC20 from "../build/LinkdropERC20";
+import LinkdropERC20Referral from "../build/LinkdropERC20Referral";
 
 chai.use(solidity);
 const { expect } = chai;
+
+const ADDRESS_ZERO = ethers.utils.getAddress(
+  "0x0000000000000000000000000000000000000000"
+);
 
 let provider = createMockProvider();
 let [linkdropper, linkdropVerifier, receiver] = getWallets(provider);
 
 const CLAIM_AMOUNT = 20;
+const REFERRAL_AMOUNT = 5;
 const LINKDROP_VERIFICATION_ADDRESS = linkdropVerifier.address;
 
 let tokenInstance;
 let linkdropInstance;
 let link;
+let referralAddress;
 let receiverAddress;
 let receiverSignature;
 
-const signLinkKeyAddress = async function(linkKeyAddress) {
+const signLinkKeyAddress = async function(linkKeyAddress, referralAddress) {
   let messageHash = ethers.utils.solidityKeccak256(
-    ["address"],
-    [linkKeyAddress]
+    ["address", "address"],
+    [linkKeyAddress, referralAddress]
   );
   let messageHashToSign = ethers.utils.arrayify(messageHash);
   let signature = await linkdropVerifier.signMessage(messageHashToSign);
   return signature;
 };
 
-const createLink = async function() {
+const createLink = async function(referralAddress) {
   let wallet = ethers.Wallet.createRandom();
   let key = wallet.privateKey;
   let address = wallet.address;
-  let verificationSignature = await signLinkKeyAddress(address);
+  let verificationSignature = await signLinkKeyAddress(
+    address,
+    referralAddress
+  );
   return {
     key, //link's ephemeral private key
     address, //address corresponding to link key
-    verificationSignature //signed by linkdrop verifier
+    verificationSignature, //signed by linkdrop verifier
+    referralAddress //referral address
   };
 };
 
@@ -57,18 +67,23 @@ const signReceiverAddress = async function(linkKey, receiverAddress) {
   return signature;
 };
 
-describe("Linkdrop ERC20 tests", () => {
+describe("Linkdrop ERC20Referral tests", () => {
   before(async () => {
     tokenInstance = await deployContract(linkdropper, TokenMock, [
       linkdropper.address,
       1000
     ]);
 
-    linkdropInstance = await deployContract(linkdropper, LinkdropERC20, [
-      tokenInstance.address,
-      CLAIM_AMOUNT,
-      LINKDROP_VERIFICATION_ADDRESS
-    ]);
+    linkdropInstance = await deployContract(
+      linkdropper,
+      LinkdropERC20Referral,
+      [
+        tokenInstance.address,
+        CLAIM_AMOUNT,
+        REFERRAL_AMOUNT,
+        LINKDROP_VERIFICATION_ADDRESS
+      ]
+    );
   });
 
   it("assigns correct token address", async () => {
@@ -77,6 +92,10 @@ describe("Linkdrop ERC20 tests", () => {
 
   it("assigns correct claim amount", async () => {
     expect(await linkdropInstance.CLAIM_AMOUNT()).to.eq(CLAIM_AMOUNT);
+  });
+
+  it("assigns correct referral reward", async () => {
+    expect(await linkdropInstance.REFERRAL_REWARD()).to.eq(REFERRAL_AMOUNT);
   });
 
   it("assigns owner of the contract as linkdropper", async () => {
@@ -94,18 +113,19 @@ describe("Linkdrop ERC20 tests", () => {
   });
 
   it("creates new link key and verifies its signature", async () => {
-    link = await createLink();
+    link = await createLink(ADDRESS_ZERO);
 
     expect(
       await linkdropInstance.verifyLinkKey(
         link.address,
+        link.referralAddress,
         link.verificationSignature
       )
     ).to.be.true;
   });
 
   it("signs receiver address with link key and verifies this signature onchain", async () => {
-    link = await createLink();
+    link = await createLink(ADDRESS_ZERO);
     receiverAddress = ethers.Wallet.createRandom().address;
     receiverSignature = await signReceiverAddress(link.key, receiverAddress);
 
@@ -119,7 +139,8 @@ describe("Linkdrop ERC20 tests", () => {
   });
 
   it("should fail to claim tokens when paused", async () => {
-    link = await createLink();
+    referralAddress = ADDRESS_ZERO;
+    link = await createLink(referralAddress);
     receiverAddress = ethers.Wallet.createRandom().address;
     receiverSignature = await signReceiverAddress(link.key, receiverAddress);
 
@@ -128,6 +149,7 @@ describe("Linkdrop ERC20 tests", () => {
     await expect(
       linkdropInstance.claim(
         receiverAddress,
+        referralAddress,
         link.address,
         link.verificationSignature,
         receiverSignature,
@@ -138,13 +160,14 @@ describe("Linkdrop ERC20 tests", () => {
 
   it("should fail to claim more than approved amount of tokens", async () => {
     await linkdropInstance.unpause(); //Unpausing
-
-    link = await createLink();
+    referralAddress = ADDRESS_ZERO;
+    link = await createLink(referralAddress);
     receiverAddress = ethers.Wallet.createRandom().address;
     receiverSignature = await signReceiverAddress(link.key, receiverAddress);
     await expect(
       linkdropInstance.claim(
         receiverAddress,
+        referralAddress,
         link.address,
         link.verificationSignature,
         receiverSignature,
@@ -157,13 +180,15 @@ describe("Linkdrop ERC20 tests", () => {
     //Approving tokens from linkdropper to Linkdrop Contract
     await tokenInstance.approve(linkdropInstance.address, 1000);
 
-    link = await createLink();
+    referralAddress = ethers.Wallet.createRandom().address;
+    link = await createLink(referralAddress);
     receiverAddress = ethers.Wallet.createRandom().address;
     receiverSignature = await signReceiverAddress(link.key, receiverAddress);
 
     await expect(
       linkdropInstance.claim(
         receiverAddress,
+        referralAddress,
         link.address,
         link.verificationSignature,
         receiverSignature,
@@ -176,12 +201,16 @@ describe("Linkdrop ERC20 tests", () => {
 
     let receiverTokenBalance = await tokenInstance.balanceOf(receiverAddress);
     expect(receiverTokenBalance).to.eq(CLAIM_AMOUNT);
+
+    let referralTokenBalance = await tokenInstance.balanceOf(referralAddress);
+    expect(referralTokenBalance).to.eq(REFERRAL_AMOUNT);
   });
 
   it("should fail to claim link twice", async () => {
     await expect(
       linkdropInstance.claim(
         receiverAddress,
+        referralAddress,
         link.address,
         link.verificationSignature,
         receiverSignature,
@@ -194,13 +223,17 @@ describe("Linkdrop ERC20 tests", () => {
     let wallet = ethers.Wallet.createRandom();
     let linkKeyaddress = wallet.address;
 
-    let message = ethers.utils.solidityKeccak256(["address"], [linkKeyaddress]);
+    let message = ethers.utils.solidityKeccak256(
+      ["address", "address"],
+      [linkKeyaddress, ADDRESS_ZERO]
+    );
     let messageToSign = ethers.utils.arrayify(message);
     let fakeSignature = await receiver.signMessage(messageToSign);
 
     await expect(
       linkdropInstance.claim(
         receiverAddress,
+        referralAddress,
         linkKeyaddress,
         fakeSignature,
         receiverSignature,
@@ -210,8 +243,9 @@ describe("Linkdrop ERC20 tests", () => {
   });
 
   it("should fail to claim tokens with fake receiver signature", async () => {
-    link = await createLink();
-    let fakeLink = await createLink(); //another fake link
+    referralAddress = ADDRESS_ZERO;
+    link = await createLink(referralAddress);
+    let fakeLink = await createLink(referralAddress); //another fake link
     receiverAddress = ethers.Wallet.createRandom().address;
     receiverSignature = await signReceiverAddress(
       fakeLink.key, //signing receiver address with fake link key
@@ -220,6 +254,7 @@ describe("Linkdrop ERC20 tests", () => {
     await expect(
       linkdropInstance.claim(
         receiverAddress,
+        referralAddress,
         link.address,
         link.verificationSignature,
         receiverSignature,

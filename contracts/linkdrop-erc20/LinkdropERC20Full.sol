@@ -28,7 +28,7 @@ import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
  * Anytime linkdropper can get back unclaimed ether using withdrawEther method.
  * 
  */
-contract LinkdropERC20 is Pausable {
+contract LinkdropERC20Full is Pausable {
 
     // ERC20 token to be distributed
     address public TOKEN_ADDRESS; 
