@@ -279,6 +279,26 @@ describe("Linkdrop ERC20Full tests", () => {
     ).to.be.revertedWith("Receiver address is not signed by link key");
   });
 
+  it("should revert when passing wrong params to checkClaim function", async () => {
+    referralAddress = ADDRESS_ZERO;
+    link = await createLink(referralAddress);
+
+    receiverAddress = ethers.Wallet.createRandom().address;
+    let fakeReceiverAddress = ethers.Wallet.createRandom().address;
+
+    receiverSignature = await signReceiverAddress(link.key, receiverAddress);
+
+    await expect(
+      linkdropInstance.checkClaimParams(
+        fakeReceiverAddress,
+        referralAddress,
+        link.address,
+        link.verificationSignature,
+        receiverSignature
+      )
+    ).to.be.reverted;
+  });
+
   it("should fail to withdraw eth from non-linkdropper account", async () => {
     await expect(
       linkdropInstance.connect(receiver).withdrawEther({ gasLimit: 500000 })
