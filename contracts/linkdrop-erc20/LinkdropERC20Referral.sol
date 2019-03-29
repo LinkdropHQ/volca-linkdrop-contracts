@@ -45,7 +45,7 @@ contract LinkdropERC20Referral is Pausable {
     //Indicates whether the link was used or not
     mapping (address => bool) claimed;
 
-    event Claimed(address indexed linkKeyAddress, address receiver, uint timestamp);
+    event Claimed(address indexed linkAddress, address receiver, uint timestamp);
 
     /**
     * @dev Contructor that sets linkdrop params. 
@@ -71,20 +71,20 @@ contract LinkdropERC20Referral is Pausable {
 
   /**
    * @dev Verify that address corresponding to link key is signed with linkdrop verification key
-   * @param _linkKeyAddress address corresponding to link key
+   * @param _linkAddress address corresponding to link key
    * @param _signature ECDSA signature
    * @return True if signature is correct.
    */
     function verifyLinkKey
     (
-        address _linkKeyAddress, // address corresponding to link key
+        address _linkAddress, // address corresponding to link key
         address _referralAddress,
         bytes memory _signature
     )
     public view 
     returns (bool) 
     {
-        bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(keccak256(abi.encodePacked(_linkKeyAddress, _referralAddress)));
+        bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(keccak256(abi.encodePacked(_linkAddress, _referralAddress)));
         address signer = ECDSA.recover(prefixedHash, _signature);
         return signer == LINKDROP_VERIFICATION_ADDRESS;
     }
@@ -92,14 +92,14 @@ contract LinkdropERC20Referral is Pausable {
 
   /**
    * @dev Verify that address to receive tokens is signed with link key
-   * @param _linkKeyAddress address corresponding to link key
+   * @param _linkAddress address corresponding to link key
    * @param _receiver address to receive token.
    * @param _signature ECDSA signature
    * @return True if signature is correct.
    */
     function verifyReceiverAddress
     (
-        address _linkKeyAddress,
+        address _linkAddress,
         address _receiver,
         bytes memory _signature
     )
@@ -108,13 +108,13 @@ contract LinkdropERC20Referral is Pausable {
     {
         bytes32 prefixedHash = ECDSA.toEthSignedMessageHash(keccak256(abi.encodePacked(_receiver)));
         address signer = ECDSA.recover(prefixedHash, _signature);
-        return signer == _linkKeyAddress;
+        return signer == _linkAddress;
     }
 
     /**
     * @dev Verify that claim params are correct and the link's ephemeral key wasn't used before.  
     * @param _receiver address to receive tokens.
-    * @param _linkKeyAddress address that corresponds to link key
+    * @param _linkAddress address that corresponds to link key
     * @param _linkdropperSignature ECDSA signature. Signed by linkdrop verification key.
     * @param _receiverSignature ECDSA signature. Signed by link key
     */
@@ -122,7 +122,7 @@ contract LinkdropERC20Referral is Pausable {
     (
         address _receiver,
         address _referralAddress,
-        address _linkKeyAddress,
+        address _linkAddress,
         bytes memory _linkdropperSignature,
         bytes memory _receiverSignature
     )
@@ -130,19 +130,19 @@ contract LinkdropERC20Referral is Pausable {
     returns (bool)
     {
         // verify that link wasn't claimed before
-        require(claimed[_linkKeyAddress] == false, "Link has already been claimed");
+        require(claimed[_linkAddress] == false, "Link has already been claimed");
 
         // verify that ephemeral key is legit and signed by LINKDROP_VERIFICATION_ADDRESS's key
         require
         (
-            verifyLinkKey(_linkKeyAddress, _referralAddress, _linkdropperSignature), 
+            verifyLinkKey(_linkAddress, _referralAddress, _linkdropperSignature), 
             "Link key is not signed by linkdrop verification key"
         );
 
         // verify that receiver address is signed by ephemeral key assigned to claim link
         require
         (
-            verifyReceiverAddress(_linkKeyAddress, _receiver, _receiverSignature), 
+            verifyReceiverAddress(_linkAddress, _receiver, _receiverSignature), 
             "Receiver address is not signed by link key"
         );
 
@@ -152,7 +152,7 @@ contract LinkdropERC20Referral is Pausable {
     /**
     * @dev Claim tokens to receiver address if claim params are correct.
     * @param _receiver address to receive tokens.
-    * @param _linkKeyAddress address corresponding to link key 
+    * @param _linkAddress address corresponding to link key 
     * @param _linkdropperSignature ECDSA signature. Signed by the airdrop transit key.
     * @param _receiverSignature ECDSA signature. Signed by the link's ephemeral key.
     * @return True if tokens were successfully sent to receiver.
@@ -161,7 +161,7 @@ contract LinkdropERC20Referral is Pausable {
     (
         address payable _receiver,
         address _referralAddress,
-        address _linkKeyAddress,
+        address _linkAddress,
         bytes memory _linkdropperSignature,
         bytes memory _receiverSignature
     )
@@ -175,7 +175,7 @@ contract LinkdropERC20Referral is Pausable {
             (
                 _receiver,
                 _referralAddress,
-                _linkKeyAddress,
+                _linkAddress,
                 _linkdropperSignature,
                 _receiverSignature
             ),
@@ -183,7 +183,7 @@ contract LinkdropERC20Referral is Pausable {
         );
 
         // mark link as claimed
-        claimed[_linkKeyAddress] = true;
+        claimed[_linkAddress] = true;
 
         // send tokens
         if (CLAIM_AMOUNT > 0 && TOKEN_ADDRESS != address(0)) {
@@ -196,21 +196,21 @@ contract LinkdropERC20Referral is Pausable {
         }
 
         // log claim
-        emit Claimed(_linkKeyAddress, _receiver, now);
+        emit Claimed(_linkAddress, _receiver, now);
 
         return true;
     }
 
     /**
     * @dev Get boolean if link is already claimed. 
-    * @param _linkKeyAddress address corresponding to link key
+    * @param _linkAddress address corresponding to link key
     * @return True if the link key was already used. 
     */
-    function isClaimedLink(address _linkKeyAddress)
+    function isClaimedLink(address _linkAddress)
     public view 
     returns (bool) 
     {
-        return claimed[_linkKeyAddress];
+        return claimed[_linkAddress];
     }
 
 }

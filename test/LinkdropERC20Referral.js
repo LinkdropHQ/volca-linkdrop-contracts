@@ -30,10 +30,10 @@ let referralAddress;
 let receiverAddress;
 let receiverSignature;
 
-const signLinkKeyAddress = async function(linkKeyAddress, referralAddress) {
+const signLinkAddress = async function(linkAddress, referralAddress) {
   let messageHash = ethers.utils.solidityKeccak256(
     ["address", "address"],
-    [linkKeyAddress, referralAddress]
+    [linkAddress, referralAddress]
   );
   let messageHashToSign = ethers.utils.arrayify(messageHash);
   let signature = await linkdropVerifier.signMessage(messageHashToSign);
@@ -44,10 +44,7 @@ const createLink = async function(referralAddress) {
   let wallet = ethers.Wallet.createRandom();
   let key = wallet.privateKey;
   let address = wallet.address;
-  let verificationSignature = await signLinkKeyAddress(
-    address,
-    referralAddress
-  );
+  let verificationSignature = await signLinkAddress(address, referralAddress);
   return {
     key, //link's ephemeral private key
     address, //address corresponding to link key
