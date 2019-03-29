@@ -28,17 +28,17 @@ import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
 
 contract LinkdropERC721 is Pausable {
 
-    // NFT to be ditributed
+    //NFT to be ditributed
     address public NFT_ADDRESS;
 
-    // address that holds NFTs to distribute (owner of this contract)
+    //Address that holds NFTs to distribute (owner of this contract)
     address payable public LINKDROPPER; 
 
-    // special address, used on claim to verify that links signed by the LINKDROPPER
+    //Special address, used on claim to verify that links signed by the LINKDROPPER
     address public LINKDROP_VERIFICATION_ADDRESS; 
   
     //Indicates whether the link was used or not                                                                                                                 
-    mapping (address => address) claimed;  
+    mapping (address => address) claimedTo;  
 
     event Claimed(address indexed linkAddress, uint indexed tokenId, address receiver, uint timestamp);
   
@@ -121,17 +121,17 @@ contract LinkdropERC721 is Pausable {
     public view
     returns (bool)
     {
-        // verify that link wasn't claimed before  
+        //Verify that link was not claimed before  
         require(isClaimedLink(_linkAddress) == false, "Link has already been claimed");
 
-        // verify that ephemeral key is legit and signed by LINKDROP_VERIFICATION_ADDRESS's key
+        //Verify that ephemeral link key is legit and signed by LINKDROP_VERIFICATION_ADDRESS's key
         require
         (
             verifyLinkKey(_linkAddress, _tokenId, _linkdropperSignature), 
             "Link key is not signed by linkdrop verification key"
         );
     
-        // verify that receiver address is signed by ephemeral key assigned to claim link
+        //Verify that receiver address is signed by ephemeral key assigned to claim link
         require
         (
             verifyReceiverAddress(_linkAddress, _receiver, _receiverSignature), 
@@ -175,13 +175,13 @@ contract LinkdropERC721 is Pausable {
             "Invalid claim params"
         );
 
-        // mark link as claimed
-        claimed[_linkAddress] = _receiver;			
+        //Mark link as claimed
+        claimedTo[_linkAddress] = _receiver;	
     
-        // send NFT
+        //Send NFT
         IERC721(NFT_ADDRESS).safeTransferFrom(LINKDROPPER, _receiver, _tokenId);
            
-        // log claim
+        //Log claim event
         emit Claimed(_linkAddress, _tokenId, _receiver, now);    
         
         return true;
@@ -207,7 +207,7 @@ contract LinkdropERC721 is Pausable {
     public view 
     returns (address) 
     {
-        return claimed[_linkAddress];
+        return claimedTo[_linkAddress];
     }
 
 }
